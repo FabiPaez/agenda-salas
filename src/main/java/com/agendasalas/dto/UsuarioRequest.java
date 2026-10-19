@@ -17,11 +17,11 @@ public record UsuarioRequest(
 
         @NotBlank(message = "El correo es obligatorio")
         @Email(message = "El correo no tiene un formato válido")
-        @Size(max = 150)
+        @Size(max = 80)
         String email,
 
         @NotBlank(message = "La contraseña es obligatoria")
-        @Size(min = 8, max = 100)
+        @Size(min = 8, max = 50)
         String contrasena,
 
         @NotNull(message = "El tipo de usuario es obligatorio")

@@ -30,6 +30,18 @@ public class ReservaController {
         return reservaService.buscarRespuestaPorId(id);
     }
 
+    @GetMapping("/usuario/{usuarioId}")
+    public List<ReservaResponse> listarPorUsuario(
+            @PathVariable Long usuarioId) {
+        return reservaService.listarPorUsuario(usuarioId);
+    }
+
+    @GetMapping("/sala/{salaId}")
+    public List<ReservaResponse> listarPorSala(
+            @PathVariable Long salaId) {
+        return reservaService.listarPorSala(salaId);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ReservaResponse crear(

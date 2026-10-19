@@ -190,4 +190,32 @@ public class ReservaService {
             }
         }
     }
+
+    @Transactional(readOnly = true)
+    public List<ReservaResponse> listarPorUsuario(Long usuarioId) {
+        if (!usuarioRepository.existsById(usuarioId)) {
+            throw new RecursoNoEncontradoException(
+                    "No existe el usuario con ID " + usuarioId
+            );
+        }
+
+        return reservaRepository.findByUsuario_Id(usuarioId)
+                .stream()
+                .map(ReservaMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReservaResponse> listarPorSala(Long salaId) {
+        if (!salaRepository.existsById(salaId)) {
+            throw new RecursoNoEncontradoException(
+                    "No existe la sala con ID " + salaId
+            );
+        }
+
+        return reservaRepository.findBySala_Id(salaId)
+                .stream()
+                .map(ReservaMapper::toResponse)
+                .toList();
+    }
 }

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.agendasalas.entity.EstadoReserva;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -27,4 +28,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
             @Param("horaInicio") LocalTime horaInicio,
             @Param("reservaId") Long reservaId
     );
+    List<Reserva> findByUsuario_Id(Long usuarioId);
+
+    List<Reserva> findBySala_Id(Long salaId);
 }
