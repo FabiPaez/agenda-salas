@@ -6,6 +6,7 @@ import com.agendasalas.service.ReservaService;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,44 +22,58 @@ public class ReservaController {
     }
 
     @GetMapping
-    public List<ReservaResponse> listar() {
-        return reservaService.listarRespuestas();
+    public ResponseEntity<List<ReservaResponse>> listar() {
+        return ResponseEntity.ok(reservaService.listarRespuestas());
     }
 
     @GetMapping("/{id}")
-    public ReservaResponse buscar(@PathVariable Long id) {
-        return reservaService.buscarRespuestaPorId(id);
+    public ResponseEntity<ReservaResponse> buscar(@PathVariable Long id) {
+        return ResponseEntity.ok(reservaService.buscarRespuestaPorId(id));
     }
 
     @GetMapping("/usuario/{usuarioId}")
-    public List<ReservaResponse> listarPorUsuario(
+    public ResponseEntity<List<ReservaResponse>> listarPorUsuario(
             @PathVariable Long usuarioId) {
-        return reservaService.listarPorUsuario(usuarioId);
+
+        return ResponseEntity.ok(
+                reservaService.listarPorUsuario(usuarioId));
     }
 
     @GetMapping("/sala/{salaId}")
-    public List<ReservaResponse> listarPorSala(
+    public ResponseEntity<List<ReservaResponse>> listarPorSala(
             @PathVariable Long salaId) {
-        return reservaService.listarPorSala(salaId);
+
+        return ResponseEntity.ok(
+                reservaService.listarPorSala(salaId));
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ReservaResponse crear(
+    public ResponseEntity<ReservaResponse> crear(
             @Valid @RequestBody ReservaRequest request) {
-        return reservaService.crearDesdeRequest(request);
+
+        ReservaResponse respuesta =
+                reservaService.crearDesdeRequest(request);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(respuesta);
     }
 
     @PutMapping("/{id}")
-    public ReservaResponse actualizar(
+    public ResponseEntity<ReservaResponse> actualizar(
             @PathVariable Long id,
             @Valid @RequestBody ReservaRequest request) {
-        return reservaService.actualizarDesdeRequest(id, request);
+
+        ReservaResponse respuesta =
+                reservaService.actualizarDesdeRequest(id, request);
+
+        return ResponseEntity.ok(respuesta);
     }
 
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void eliminar(@PathVariable Long id) {
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         reservaService.eliminar(id);
+
+        return ResponseEntity.noContent().build();
     }
 }

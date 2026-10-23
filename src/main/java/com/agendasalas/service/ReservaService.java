@@ -1,17 +1,17 @@
 package com.agendasalas.service;
 
+import com.agendasalas.dto.ReservaRequest;
+import com.agendasalas.dto.ReservaResponse;
 import com.agendasalas.entity.EstadoReserva;
 import com.agendasalas.entity.Reserva;
 import com.agendasalas.entity.Sala;
 import com.agendasalas.entity.Usuario;
+import com.agendasalas.exception.ConflictoException;
+import com.agendasalas.exception.RecursoNoEncontradoException;
+import com.agendasalas.mapper.ReservaMapper;
 import com.agendasalas.repository.ReservaRepository;
 import com.agendasalas.repository.SalaRepository;
 import com.agendasalas.repository.UsuarioRepository;
-import com.agendasalas.dto.ReservaRequest;
-import com.agendasalas.dto.ReservaResponse;
-import com.agendasalas.mapper.ReservaMapper;
-import com.agendasalas.exception.ConflictoException;
-import com.agendasalas.exception.RecursoNoEncontradoException;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,14 +29,10 @@ public class ReservaService {
             ReservaRepository reservaRepository,
             SalaRepository salaRepository,
             UsuarioRepository usuarioRepository) {
+
         this.reservaRepository = reservaRepository;
         this.salaRepository = salaRepository;
         this.usuarioRepository = usuarioRepository;
-    }
-
-    @Transactional(readOnly = true)
-    public List<Reserva> listarTodas() {
-        return reservaRepository.findAll();
     }
 
     @Transactional(readOnly = true)
@@ -51,25 +47,10 @@ public class ReservaService {
 
     @Transactional
     public Reserva crear(Reserva reserva) {
+        validarReferencias(reserva);
         validarReserva(reserva, null);
+
         return reservaRepository.save(reserva);
-    }
-
-    @Transactional
-    public Reserva actualizar(Long id, Reserva datos) {
-        Reserva existente = buscarPorId(id);
-
-        datos.setUsuario(existente.getUsuario());
-        datos.setSala(existente.getSala());
-
-        validarReserva(datos, id);
-
-        existente.setFecha(datos.getFecha());
-        existente.setHoraInicio(datos.getHoraInicio());
-        existente.setHoraFin(datos.getHoraFin());
-        existente.setEstado(datos.getEstado());
-
-        return reservaRepository.save(existente);
     }
 
     @Transactional
@@ -97,40 +78,51 @@ public class ReservaService {
                 .orElseThrow(() ->
                         new RecursoNoEncontradoException(
                                 "No existe el usuario indicado"
-                        ));
+                        )
+                );
 
         Sala sala = salaRepository.findById(request.salaId())
                 .orElseThrow(() ->
                         new RecursoNoEncontradoException(
                                 "No existe la sala indicada"
-                        ));
+                        )
+                );
 
         Reserva reserva = ReservaMapper.toEntity(request, usuario, sala);
 
-        return ReservaMapper.toResponse(crear(reserva));
+        validarReserva(reserva, null);
+
+        Reserva guardada = reservaRepository.save(reserva);
+
+        return ReservaMapper.toResponse(guardada);
     }
 
     @Transactional
     public ReservaResponse actualizarDesdeRequest(
-            Long id, ReservaRequest request) {
-        buscarPorId(id);
+            Long id,
+            ReservaRequest request) {
+
+        // Buscamos la reserva una sola vez.
+        Reserva existente = buscarPorId(id);
 
         Usuario usuario = usuarioRepository.findById(request.usuarioId())
                 .orElseThrow(() ->
                         new RecursoNoEncontradoException(
                                 "No existe el usuario indicado"
-                        ));
+                        )
+                );
 
         Sala sala = salaRepository.findById(request.salaId())
                 .orElseThrow(() ->
                         new RecursoNoEncontradoException(
                                 "No existe la sala indicada"
-                        ));
+                        )
+                );
 
         Reserva datos = ReservaMapper.toEntity(request, usuario, sala);
+
         validarReserva(datos, id);
 
-        Reserva existente = buscarPorId(id);
         existente.setFecha(datos.getFecha());
         existente.setHoraInicio(datos.getHoraInicio());
         existente.setHoraFin(datos.getHoraFin());
@@ -139,7 +131,33 @@ public class ReservaService {
         existente.setEstado(datos.getEstado());
 
         Reserva guardada = reservaRepository.save(existente);
+
         return ReservaMapper.toResponse(guardada);
+    }
+
+    private void validarReferencias(Reserva reserva) {
+        if (reserva == null
+                || reserva.getSala() == null
+                || reserva.getUsuario() == null
+                || reserva.getSala().getId() == null
+                || reserva.getUsuario().getId() == null) {
+
+            throw new IllegalArgumentException(
+                    "La reserva debe tener un usuario y una sala válidos"
+            );
+        }
+
+        if (!salaRepository.existsById(reserva.getSala().getId())) {
+            throw new RecursoNoEncontradoException(
+                    "La sala indicada no existe"
+            );
+        }
+
+        if (!usuarioRepository.existsById(reserva.getUsuario().getId())) {
+            throw new RecursoNoEncontradoException(
+                    "El usuario indicado no existe"
+            );
+        }
     }
 
     private void validarReserva(Reserva reserva, Long reservaId) {
@@ -149,28 +167,22 @@ public class ReservaService {
                 || reserva.getHoraFin() == null
                 || reserva.getEstado() == null
                 || reserva.getSala() == null
-                || reserva.getUsuario() == null) {
+                || reserva.getUsuario() == null
+                || reserva.getSala().getId() == null
+                || reserva.getUsuario().getId() == null) {
+
             throw new IllegalArgumentException(
-                    "Todos los datos de la reserva son obligatorios");
+                    "Todos los datos de la reserva son obligatorios"
+            );
         }
 
         if (!reserva.getHoraInicio().isBefore(reserva.getHoraFin())) {
             throw new IllegalArgumentException(
-                    "La hora de inicio debe ser anterior a la hora de fin");
+                    "La hora de inicio debe ser anterior a la hora de fin"
+            );
         }
 
         Long salaId = reserva.getSala().getId();
-        Long usuarioId = reserva.getUsuario().getId();
-
-        if (salaId == null || !salaRepository.existsById(salaId)) {
-            throw new IllegalArgumentException(
-                    "La sala indicada no existe");
-        }
-
-        if (usuarioId == null || !usuarioRepository.existsById(usuarioId)) {
-            throw new IllegalArgumentException(
-                    "El usuario indicado no existe");
-        }
 
         if (reserva.getEstado() == EstadoReserva.CONFIRMADA) {
             long superposiciones =
