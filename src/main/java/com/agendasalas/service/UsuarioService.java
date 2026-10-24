@@ -2,12 +2,14 @@ package com.agendasalas.service;
 
 import com.agendasalas.entity.Usuario;
 import com.agendasalas.repository.UsuarioRepository;
+import com.agendasalas.dto.RegistroUsuarioRequest;
 import com.agendasalas.dto.UsuarioRequest;
 import com.agendasalas.dto.UsuarioResponse;
 import com.agendasalas.mapper.UsuarioMapper;
 import com.agendasalas.exception.ConflictoException;
 import com.agendasalas.exception.RecursoNoEncontradoException;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +19,13 @@ import java.util.List;
 public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UsuarioService(UsuarioRepository usuarioRepository) {
+    public UsuarioService(
+            UsuarioRepository usuarioRepository,
+            PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
@@ -40,6 +46,11 @@ public class UsuarioService {
     @Transactional
     public Usuario crear(Usuario usuario) {
         validarUsuario(usuario, null);
+
+        usuario.setContrasena(
+                passwordEncoder.encode(usuario.getContrasena())
+        );
+
         return usuarioRepository.save(usuario);
     }
 
@@ -52,7 +63,9 @@ public class UsuarioService {
         existente.setNombre(datos.getNombre().trim());
         existente.setApellido(datos.getApellido().trim());
         existente.setEmail(datos.getEmail().trim());
-        existente.setContrasena(datos.getContrasena());
+        existente.setContrasena(
+                passwordEncoder.encode(datos.getContrasena())
+        );
         existente.setTipo(datos.getTipo());
 
         return usuarioRepository.save(existente);
@@ -80,6 +93,19 @@ public class UsuarioService {
     @Transactional
     public UsuarioResponse crearDesdeRequest(UsuarioRequest request) {
         Usuario usuario = UsuarioMapper.toEntity(request);
+        return UsuarioMapper.toResponse(crear(usuario));
+    }
+
+    @Transactional
+    public UsuarioResponse registrar(RegistroUsuarioRequest request) {
+        Usuario usuario = new Usuario();
+
+        usuario.setNombre(request.nombre().trim());
+        usuario.setApellido(request.apellido().trim());
+        usuario.setEmail(request.email().trim());
+        usuario.setContrasena(request.password());
+        usuario.setTipo(com.agendasalas.entity.TipoUsuario.CLIENTE);
+
         return UsuarioMapper.toResponse(crear(usuario));
     }
 
