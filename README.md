@@ -1,46 +1,60 @@
 # Agenda de Salas
 
-API REST para la gestión de reservas de salas de cine, evitando superposición de las mismas.
+API REST para la gestión de reservas de salas de un cine, con validaciones de negocio, persistencia en MySQL, registro seguro de usuarios y autorización por roles mediante Spring Security y HTTP Basic Auth.
 
 ## 1. Información del proyecto
 
-**Equipo de desarrollo**
+### Equipo de desarrollo
 - Fabián Páez
 - Facundo Santana
 - Pablo Cortez
 
-**Tecnologías utilizadas**
+### Tecnologías utilizadas
 - Java 21
 - Spring Boot
 - Maven
-- Spring Web
-- Spring Data JPA
-- Hibernate
+- Spring Web MVC
+- Spring Security y HTTP Basic Auth
+- Spring Data JPA e Hibernate
 - MySQL
 - Bean Validation
-- Docker
+- BCrypt para el almacenamiento seguro de contraseñas
+- Postman para las pruebas manuales
 
 **Repositorio:** https://github.com/FabiPaez/agenda-salas
 
-**Último Commit correspondiente al primer entregable:** "Preparando README para Primer Entregable" 
-
 **Rama de entrega:** `main`
 
-Utilizamos Render y AIVEN para desplegar el backend y la base de datos, respectivamente:
+**Commit de entrega:** "Preparando README y Home de API para Segundo Entregable".
 
-**Aplicación desplegada (backend):** https://agenda-salas.onrender.com  (La versión gratuita que utilizamos suele demorarse en la primera conexión)
+### Despliegue
 
-**Base de Datos desplegada en AIVEN** 
+- **Backend:** https://agenda-salas.onrender.com
+- **Base de datos:** MySQL en Aiven.
 
-La conexión entre Render y AIVEN se realiza mediante configuración de variables de entorno.
+La aplicación utiliza variables de entorno para configurar la conexión a la base de datos. La disponibilidad del servicio publicado depende del proveedor de alojamiento; la primera petición puede demorar debido a la modalidad de alojamiento gratuito.
 
 ## 2. Descripción y objetivo
 
-Agenda de Salas es una API REST desarrollada para administrar las reservas de salas de un cine, realizadas por usuarios.
+Agenda de Salas es una API REST para administrar usuarios, salas de cine y reservas asociadas a un usuario y una sala.
 
-El proyecto permite registrar usuarios, gestionar las salas disponibles y crear, consultar, modificar o cancelar eliminando reservas mediante solicitudes HTTP.
+Permite registrar usuarios, consultar y administrar salas, crear y consultar reservas, modificar datos y eliminar recursos. Además, valida las relaciones entre entidades y evita la superposición de reservas confirmadas para una misma sala y fecha.
 
-La aplicación está orientada al personal encargado de administrar las salas y sus reservas. No constituye, en esta primera versión, un sistema completo de venta de entradas ni de gestión de películas y funciones.
+Corregimos las siguientes observaciones del Primer Entregable:
+
+- En los controladores utilizamos `ResponseEntity` en lugar de `@ResponseStatus`.
+- En `ApiExceptionHandler`, devolvemos un DTO de error, en lugar de un `Map<String, String>.
+- Optimizamos `ReservaService` con las modificaciones correspondientes.
+
+Para este Segundo Entregable incorporamos:
+
+- Almacenamiento de contraseñas mediante BCrypt.
+- Autenticación HTTP Basic con Spring Security.
+- Autorización de operaciones según el rol del usuario.
+- Respuestas diferenciadas para errores de autenticación y autorización.
+- Protección de los datos de contraseña en las respuestas de la API.
+
+Aclaración: Este proyecto no constituye un sistema completo de venta de entradas ni de gestión de películas y funciones.
 
 ## 3. Modelo de datos
 
@@ -50,15 +64,15 @@ El sistema cuenta con tres entidades principales: `Usuario`, `Sala` y `Reserva`.
 
 Representa a una persona registrada en el sistema.
 
-Se dejan planteados 3 tipos de usuarios, proyectando una eventual escalabilidad.
-
-Atributos:
+Atributos principales:
 - `id`: identificador único.
 - `nombre`: nombre del usuario.
 - `apellido`: apellido del usuario.
-- `email`: correo electrónico único.
-- `contrasena`: contraseña recibida al registrar el usuario.
-- `tipo`: tipo de usuario (`CLIENTE`, `PERSONAL` o `ADMIN`).
+- `email`: correo electrónico único, utilizado como nombre de usuario para Basic Auth.
+- `contrasena`: contraseña almacenada como hash BCrypt.
+- `tipo`: rol del usuario (`CLIENTE`, `PERSONAL` o `ADMIN`).
+
+La contraseña original no se devuelve en los DTO de respuesta. El atributo `contrasena` contiene el hash almacenado, no la contraseña original.
 
 ### Sala
 
@@ -66,306 +80,372 @@ Representa una sala que puede ser reservada.
 
 Atributos:
 - `id`: identificador único.
-- `numero`: número identificador de la sala, único.
+- `numero`: número de sala, único.
 - `capacidad`: capacidad de la sala.
-- `estado`: estado de la sala (`DISPONIBLE`, `MANTENIMIENTO` o `INACTIVA`).
+- `estado`: `DISPONIBLE`, `MANTENIMIENTO` o `INACTIVA`.
 
 ### Reserva
 
-Representa una reserva de una sala para una fecha y un intervalo horario determinados.
+Representa la reserva de una sala para una fecha y un intervalo horario.
 
 Atributos:
 - `id`: identificador único.
 - `fecha`: fecha de la reserva.
 - `horaInicio`: hora de inicio.
 - `horaFin`: hora de finalización.
-- `usuario`: usuario asociado a la reserva.
+- `usuario`: usuario asociado.
 - `sala`: sala reservada.
-- `estado`: estado de la reserva (`CONFIRMADA` o `CANCELADA`).
+- `estado`: `CONFIRMADA` o `CANCELADA`.
 
-### Relaciones y Cardinalidades
+### Relaciones JPA
 
-- Un **Usuario** puede registrar de cero a muchas (`1:N`) **Reservas**.
-- Una **Sala** puede tener asignadas de cero a muchas (`1:N`) **Reservas**.
-- Cada **Reserva** pertenece estrictamente a un (`N:1`) **Usuario** y a una (`N:1`) **Sala**.
+- Un usuario puede tener cero o muchas reservas.
+- Una sala puede tener cero o muchas reservas.
+- Cada reserva pertenece a un usuario y a una sala.
 
-Las relaciones se implementan mediante JPA utilizando asociaciones `@ManyToOne` desde `Reserva` hacia `Usuario` y `Sala`. Las claves foráneas permiten mantener la integridad referencial de la información.
+Las relaciones se implementan mediante asociaciones `@ManyToOne` desde `Reserva` hacia `Usuario` y `Sala`, con sus respectivas claves foráneas.
 
-## 4. Funcionalidades implementadas
+La API incluye consultas de reservas por usuario y por sala, que permiten verificar el uso de estas relaciones.
 
-La API permite realizar operaciones CRUD (crear, consultar, actualizar y eliminar) sobre usuarios, salas y reservas.
+## 4. Registro, autenticación y autorización
 
-También incluye consultas de reservas por usuario y por sala, validaciones de datos y control de conflictos horarios.
+### 4.1. Registro público
 
-### URL base
+El registro de usuarios se realiza mediante:
 
-En el entorno local:
+`POST /api/auth/registro`
 
-`http://localhost:8080`
+Esta ruta es pública y no requiere credenciales.
 
-En el entorno desplegado:
+Ejemplo de solicitud:
 
-`https://agenda-salas.onrender.com`
+```http
+POST /api/auth/registro
+Content-Type: application/json
+```
 
-### Endpoints de usuarios
+```json
+{
+  "nombre": "Mario",
+  "apellido": "Ruiz",
+  "email": "mario.prueba@ejemplo.com",
+  "password": "ClaveDemo123"
+}
+```
 
-| Método HTTP | Ruta | Descripción |
+La contraseña debe tener entre 6 y 50 caracteres. El correo debe tener un formato válido y no puede superar los 150 caracteres. El nombre y el apellido son obligatorios y tienen una longitud máxima de 80 caracteres.
+
+El registro asigna automáticamente el rol `CLIENTE`. El cliente de la API no puede elegir `PERSONAL` ni `ADMIN` mediante esta solicitud.
+
+Respuesta esperada: `201 Created`.
+
+```json
+{
+  "id": 7,
+  "nombre": "Mario",
+  "apellido": "Ruiz",
+  "email": "mario.prueba@ejemplo.com",
+  "tipo": "CLIENTE"
+}
+```
+
+El identificador dependerá de los registros existentes. La respuesta está configurada para no contener la contraseña original ni su hash.
+
+Resultados adicionales:
+- `400 Bad Request`: campos inválidos o faltantes.
+- `409 Conflict`: el correo ya está registrado.
+
+La comprobación de correo duplicado se realiza en el servicio y la base de datos mantiene una restricción de unicidad.
+
+### 4.2. HTTP Basic Auth
+
+Las rutas protegidas utilizan HTTP Basic Auth mediante Spring Security.
+
+En Postman:
+
+1. Abrir la pestaña **Authorization**.
+2. Seleccionar **Basic Auth**.
+3. En **Username**, ingresar el correo electrónico registrado.
+4. En **Password**, ingresar la contraseña original.
+5. Enviar la petición.
+
+La aplicación busca al usuario por correo mediante `UserDetailsService` y compara la contraseña recibida con el hash BCrypt almacenado.
+
+No debe ingresarse el hash como contraseña en Postman. Cada petición protegida debe incluir las credenciales.
+
+
+### 4.3. Roles y permisos
+
+La aplicación utiliza tres roles: `CLIENTE`, `PERSONAL` y `ADMIN`.
+
+| Operación | CLIENTE | PERSONAL | ADMIN |
+|---|---|---|---|
+| Registrar una cuenta | Público | Público | Público |
+| Consultar salas | Sí | Sí | Sí |
+| Crear salas | No | No | Sí |
+| Modificar salas | No | No | Sí |
+| Eliminar salas | No | No | Sí |
+| Consultar usuarios | No | No | Sí |
+| Crear usuarios por `/api/usuarios` | No | No | Sí |
+| Modificar usuarios | No | No | Sí |
+| Eliminar usuarios | No | No | Sí |
+| Consultar reservas | Sí | Sí | Sí |
+| Crear reservas | Sí | Sí | Sí |
+| Modificar reservas | Sí | Sí | Sí |
+| Eliminar reservas | Sí | Sí | Sí |
+
+Las operaciones de reservas requieren autenticación, pero no se restringen por rol en esta versión. En una próxima versión implementaremos una comprobación de propiedad de cada reserva para impedir que un cliente opere sobre reservas asociadas a otro usuario.
+
+La configuración de seguridad establece las reglas de acceso mediante `SecurityFilterChain` y `hasRole(...)`.
+
+### 4.4. Preparación de un administrador de prueba
+
+El registro público no permite crear administradores directamente. Para preparar una cuenta administrativa de prueba:
+
+1. Registrar un usuario mediante `POST /api/auth/registro`, utilizando una contraseña ficticia destinada exclusivamente a la evaluación.
+2. En la base de datos, asignar el rol `ADMIN` al correo registrado.
+
+Ejemplo SQL, que debe ejecutarse únicamente sobre la cuenta correspondiente:
+
+```sql
+UPDATE usuarios
+SET tipo = 'ADMIN'
+WHERE email = 'mario.prueba@ejemplo.com';
+```
+
+3. Verificar el rol en la base de datos.
+4. Autenticarse en Postman con el correo y la contraseña original elegidos durante el registro.
+
+
+## 5. Endpoints/Acceso de la API
+
+URL base local: `http://localhost:8080`
+
+URL base publicada: `https://agenda-salas.onrender.com`
+
+### 5.1. Autenticación y registro
+
+| Método | Ruta | Acceso |
 |---|---|---|
-| GET | `/api/usuarios` | Lista los usuarios. |
-| GET | `/api/usuarios/{id}` | Consulta un usuario por ID. |
-| POST | `/api/usuarios` | Registra un usuario. |
-| PUT | `/api/usuarios/{id}` | Actualiza un usuario. |
-| DELETE | `/api/usuarios/{id}` | Elimina un usuario. |
+| POST | `/api/auth/registro` | Público |
 
-### Endpoints de salas
+### 5.2. Usuarios
 
-| Método HTTP | Ruta | Descripción |
+| Método | Ruta | Acceso |
 |---|---|---|
-| GET | `/api/salas` | Lista las salas. |
-| GET | `/api/salas/{id}` | Consulta una sala por ID. |
-| POST | `/api/salas` | Registra una sala. |
-| PUT | `/api/salas/{id}` | Actualiza una sala. |
-| DELETE | `/api/salas/{id}` | Elimina una sala. |
+| GET | `/api/usuarios` | ADMIN |
+| GET | `/api/usuarios/{id}` | ADMIN |
+| POST | `/api/usuarios` | ADMIN |
+| PUT | `/api/usuarios/{id}` | ADMIN |
+| DELETE | `/api/usuarios/{id}` | ADMIN |
 
-### Endpoints de reservas
+El endpoint de registro público es `/api/auth/registro`. El CRUD de `/api/usuarios` está protegido y reservado al administrador.
 
-| Método HTTP | Ruta | Descripción |
+### 5.3. Salas
+
+| Método | Ruta | Acceso |
 |---|---|---|
-| GET | `/api/reservas` | Lista las reservas. |
-| GET | `/api/reservas/{id}` | Consulta una reserva por ID. |
-| GET | `/api/reservas/usuario/{usuarioId}` | Lista las reservas de un usuario. |
-| GET | `/api/reservas/sala/{salaId}` | Lista las reservas de una sala. |
-| POST | `/api/reservas` | Crea una reserva. |
-| PUT | `/api/reservas/{id}` | Actualiza una reserva. |
-| DELETE | `/api/reservas/{id}` | Elimina una reserva. |
+| GET | `/api/salas` | Cualquier usuario autenticado |
+| GET | `/api/salas/{id}` | Cualquier usuario autenticado |
+| POST | `/api/salas` | ADMIN |
+| PUT | `/api/salas/{id}` | ADMIN |
+| DELETE | `/api/salas/{id}` | ADMIN |
 
-**Aclaraciones sobre los métodos HTTP:**
-- `GET`: consulta información.
-- `POST`: crea un recurso.
-- `PUT`: actualiza un recurso.
-- `DELETE`: elimina un recurso.
-- `PATCH`: no está implementado en esta versión.
+### 5.4. Reservas
 
-La ruta raíz `/` muestra una página de texto con los principales endpoints disponibles.
-ESto para evitar que nuestra API muestre un inicio Vacío
+| Método | Ruta | Acceso |
+|---|---|---|
+| GET | `/api/reservas` | Cualquier usuario autenticado |
+| GET | `/api/reservas/{id}` | Cualquier usuario autenticado |
+| GET | `/api/reservas/usuario/{usuarioId}` | Cualquier usuario autenticado |
+| GET | `/api/reservas/sala/{salaId}` | Cualquier usuario autenticado |
+| POST | `/api/reservas` | Cualquier usuario autenticado |
+| PUT | `/api/reservas/{id}` | Cualquier usuario autenticado |
+| DELETE | `/api/reservas/{id}` | Cualquier usuario autenticado |
 
-## 5. Ejemplos de uso
 
-Las siguientes solicitudes se pueden ejecutar con Postman o cualquier herramienta que permita enviar peticiones HTTP.
+## 6. Ejemplos de uso con Postman
 
-Para las solicitudes `POST` y `PUT`, utilizar el encabezado:
+Para las solicitudes con cuerpo JSON, seleccionar **Body → raw → JSON** y utilizar el encabezado `Content-Type: application/json`.
 
-`Content-Type: application/json`
+### 6.1. Registrar un usuario sin autenticación
 
-### 5.1. Registrar una sala
+**Solicitud:**
 
-**Solicitud**
+`POST /api/auth/registro`
+
+```json
+{
+  "nombre": "Ana",
+  "apellido": "Gomez",
+  "email": "ana.prueba@ejemplo.com",
+  "password": "ClaveDemo123"
+}
+```
+
+**Resultado esperado:** `201 Created`, con los datos del usuario y sin contraseña ni hash.
+
+### 6.2. Probar un correo duplicado
+
+Enviar nuevamente el registro con el mismo correo.
+
+**Resultado esperado:** `409 Conflict`, sin crear otro usuario.
+
+### 6.3. Probar datos inválidos
+
+Enviar un registro con una contraseña inferior a 6 caracteres:
+
+```json
+{
+  "nombre": "Ana",
+  "apellido": "Gomez",
+  "email": "ana.invalida@ejemplo.com",
+  "password": "123"
+}
+```
+
+**Resultado esperado:** `400 Bad Request`, con un mensaje que indique el incumplimiento de la validación.
+
+### 6.4. Consultar salas con autenticación
+
+**Solicitud:**
+
+`GET /api/salas`
+
+En Authorization, seleccionar Basic Auth e ingresar el correo y la contraseña de un usuario registrado.
+
+**Resultado esperado:** `200 OK`.
+
+### 6.5. Intentar crear una sala como CLIENTE
+
+**Solicitud:**
 
 `POST /api/salas`
 
 ```json
 {
-  "numero": 5,
-  "capacidad": 65,
+  "numero": 99,
+  "capacidad": 10,
   "estado": "DISPONIBLE"
 }
 ```
 
-**Respuesta esperada:** `201 Created`.
+**Resultado esperado:** `403 Forbidden`. La sala no debe crearse y en la respuesta del error debe existir el mensaje: "No tiene permisos para realizar esta operación" 
 
-```json
-{
-  "id": 5,
-  "numero": 5,
-  "capacidad": 65,
-  "estado": "DISPONIBLE"
-}
-```
+### 6.6. Crear una sala como ADMIN
 
-El numero de sala es posible que no coincida con el Identificador.
-Ya que esto no es un requisto funcional.
+Enviar la misma solicitud autenticándose con una cuenta que tenga rol `ADMIN`.
 
-### 5.2. Registrar un usuario
+**Resultado esperado:** `201 Created`, con los datos de la sala creada.
 
-**Solicitud**
+### 6.7. Crear una reserva como CLIENTE
 
-`POST /api/usuarios`
-
-```json
-{
-  "nombre": "Ana",
-  "apellido": "Gomez",
-  "email": "ana.prueba@ejemplo.com",
-  "contrasena": "ClaveDemo123",
-  "tipo": "PERSONAL"
-}
-```
-
-**Respuesta esperada:** `201 Created`.
-
-```json
-{
-  "id": 4,
-  "nombre": "Ana",
-  "apellido": "Gomez",
-  "email": "ana.prueba@ejemplo.com",
-  "tipo": "PERSONAL"
-}
-```
-
-La respuesta no incluye el atributo `contrasena`. Los datos de este ejemplo son ficticios y deben utilizarse únicamente para pruebas.
-
-### 5.3. Crear una reserva
-
-Para crear una reserva deben existir previamente el usuario y la sala indicados.
-
-**Solicitud**
+**Solicitud:**
 
 `POST /api/reservas`
 
 ```json
 {
-  "fecha": "2026-11-24",
-  "horaInicio": "14:00:00",
-  "horaFin": "16:00:00",
-  "usuarioId": 3,
-  "salaId": 1,
-  "estado": "CONFIRMADA"
+  "salaId": "4",
+  "fecha": "2026-12-12",
+  "estado": "CONFIRMADA",
+  "horaInicio": "10:00:00",
+  "horaFin": "12:00:00",
+  "usuarioId": 5
 }
 ```
 
-**Respuesta esperada:** `201 Created`.
+El usuario y la sala indicados deben existir y el horario debe estar disponible, con horarios válidos segun las reglas.
 
-```json
-{
-  "id": 5,
-  "fecha": "2026-10-22",
-  "horaInicio": "14:00:00",
-  "horaFin": "16:00:00",
-  "usuarioId": 2,
-  "salaId": 1,
-  "estado": "CONFIRMADA"
-}
-```
+**Resultado esperado:** `201 Created`, con los datos de la reserva.
 
-Los identificadores devueltos dependerán de los que existan en la base de datos. La reserva solo se creará si supera las validaciones del sistema.
+### 6.8. Consultar reservas por relación
 
-### 5.4. Consultar reservas relacionadas
-
-Listar todas las reservas:
+Todas las reservas:
 
 `GET /api/reservas`
 
-Consultar una reserva específica:
+Reservas de un usuario:
 
-`GET /api/reservas/1`
+`GET /api/reservas/usuario/2`
 
-Consultar las reservas de un usuario:
+Reservas de una sala:
 
-`GET /api/reservas/usuario/1`
+`GET /api/reservas/sala/2`
 
-Consultar las reservas de una sala:
+Estas consultas requieren autenticación y permiten verificar las relaciones entre `Reserva`, `Usuario` y `Sala`.
 
-`GET /api/reservas/sala/1`
+### 6.9. Comprobar errores de autenticación y autorización
 
-Si el usuario o la sala indicados no existen, la API devuelve `404 Not Found`. Por ejemplo:
+| Escenario | Resultado esperado |
+|---|---|
+| Consultar salas sin credenciales | `401 Unauthorized` |
+| Consultar salas con contraseña incorrecta | `401 Unauthorized` |
+| Crear una sala como CLIENTE | `403 Forbidden` |
+| Modificar una sala como CLIENTE | `403 Forbidden` |
+| Eliminar una sala como CLIENTE | `403 Forbidden` |
+| Consultar usuarios como CLIENTE | `403 Forbidden` |
+| Consultar usuarios como ADMIN | `200 OK` |
 
-```json
-{
-  "error": "No existe el usuario con ID 8"
-}
-```
+La respuesta de error incluye un código HTTP, un mensaje comprensible y una fecha. Las operaciones rechazadas por la autorización no deben ejecutar la modificación solicitada.
 
-### 5.5. Actualizar y eliminar
-
-Para actualizar una sala:
-
-`PUT /api/salas/2`
-
-```json
-{
-  "numero": 2,
-  "capacidad": 25,
-  "estado": "DISPONIBLE"
-}
-```
-
-Para eliminar una reserva:
-
-`DELETE /api/reservas/2`
-
-Si la eliminación se realiza correctamente, la respuesta es `204 No Content`.
-
-## 6. Validaciones y reglas de negocio
-
-La API implementa validaciones para mantener la consistencia de los datos.
+## 7. Validaciones y reglas de negocio
 
 ### Usuarios
-- Nombre, apellido, email, contraseña y tipo son obligatorios.
+- Nombre, apellido, correo, contraseña y rol son obligatorios según la operación.
 - Nombre y apellido tienen una longitud máxima de 80 caracteres.
-- El email debe tener un formato válido y no superar los 80 caracteres.
-- La contraseña debe tener entre 8 y 50 caracteres.
-- No se permiten emails duplicados.
+- El correo debe tener formato válido, una longitud máxima de 150 caracteres y ser único.
+- En el registro público, la contraseña debe tener entre 6 y 50 caracteres.
+- Las contraseñas se almacenan con BCrypt.
+- El registro público asigna `CLIENTE` automáticamente.
 
 ### Salas
-- El número y la capacidad son obligatorios y deben ser positivos.
-- El estado debe corresponder a uno de los valores permitidos.
+- El número y la capacidad deben ser válidos y positivos.
+- El estado debe corresponder a un valor permitido.
 - No se permiten números de sala duplicados.
 
 ### Reservas
-- La fecha, el horario, el usuario, la sala y el estado son obligatorios.
+- La fecha, el horario, el usuario, la sala y el estado deben ser válidos.
 - La fecha no puede ser anterior al día actual.
 - La hora de inicio debe ser anterior a la hora de finalización.
 - El usuario y la sala asociados deben existir.
 - No se permiten superposiciones entre reservas confirmadas de una misma sala en una misma fecha.
+- Dos reservas consecutivas, donde una termina exactamente cuando comienza la otra, no se consideran superpuestas.
 
-La comprobación de superposición considera que existe conflicto cuando el intervalo de una reserva se cruza con el de otra reserva confirmada. Los intervalos consecutivos, en los que una reserva termina exactamente cuando comienza la siguiente, no se consideran superpuestos.
+## 8. Manejo de errores y códigos HTTP
 
-## 7. Manejo de errores y códigos HTTP
+| Código | Significado | Ejemplo |
+|---|---|---|
+| `200 OK` | Operación exitosa | Consulta o actualización |
+| `201 Created` | Recurso creado | Registro de usuario, sala o reserva |
+| `204 No Content` | Operación exitosa sin respuesta | Eliminación |
+| `400 Bad Request` | Solicitud inválida | Campos faltantes o formato incorrecto |
+| `401 Unauthorized` | Falta autenticación o las credenciales son inválidas | Basic Auth ausente o incorrecto |
+| `403 Forbidden` | Usuario autenticado sin permisos suficientes | CLIENTE intenta crear una sala |
+| `404 Not Found` | Recurso inexistente | Identificador no encontrado |
+| `409 Conflict` | Conflicto con los datos existentes | Correo duplicado o conflicto de integridad |
 
-La aplicación centraliza el tratamiento de excepciones para responder con códigos HTTP adecuados.
-
-| Código HTTP | Significado | Situación habitual                                                                     |
-|---|---|----------------------------------------------------------------------------------------|
-| `200 OK` | Operación exitosa. | Consultas y actualizaciones.                                                           |
-| `201 Created` | Recurso creado. | Registro de usuario, sala o reserva.                                                   |
-| `204 No Content` | Operación exitosa sin contenido. | Eliminación.                                                                           |
-| `400 Bad Request` | Solicitud inválida. | Campos obligatorios faltantes o datos incorrectos.                                     |
-| `404 Not Found` | Recurso inexistente. | ID no encontrado.                                                                      |
-| `409 Conflict` | Conflicto con el estado de los datos. | Email o número duplicado, superposición horaria de reservas o conflicto de integridad. |
-
-Las respuestas de error pueden incluir un objeto JSON con la propiedad `error`, que contiene una descripción del problema.
-
-## 8. Requisitos para ejecutar el proyecto
-
-Para ejecutar la aplicación localmente se necesita:
-
-- Java Development Kit (JDK) 21.
-- Git, si se obtiene el código desde GitHub.
-- Maven.
-
-Recomendamos utilizar el despliegue de Render, ya se encuentra vinculado a AIVEN mediante variables de entorno.
-https://agenda-salas.onrender.com
+Los errores de validación, negocio, autenticación y autorización se responden mediante mensajes JSON. La estructura concreta depende del manejador que corresponda a la excepción.
 
 ## 9. Configuración de la base de datos
 
-La aplicación utiliza MySQL y obtiene los datos de conexión mediante variables de entorno, evitando almacenar credenciales en el código fuente.
-
-Las variables requeridas son:
+La aplicación utiliza MySQL y las siguientes variables de entorno:
 
 | Variable | Descripción |
 |---|---|
-| `DB_URL` | URL JDBC de conexión a MySQL. |
-| `DB_USERNAME` | Usuario de la base de datos. |
-| `DB_PASSWORD` | Contraseña de la base de datos. |
+| `DB_URL` | URL JDBC de conexión |
+| `DB_USERNAME` | Usuario de la base |
+| `DB_PASSWORD` | Contraseña de la base |
 
-Para una instalación local, crear una base de datos llamada `agenda_salas` en MySQL. Por ejemplo:
+Para una instalación local, crear una base de datos:
 
 ```sql
 CREATE DATABASE agenda_salas;
 ```
 
-Configurar las variables de entorno con valores correspondientes a la instalación local:
+En nuestro caso, utilizamos una base de datos alojada en AIVEN.
+
+Ejemplo de configuración local:
 
 ```text
 DB_URL=jdbc:mysql://localhost:3306/agenda_salas
@@ -373,48 +453,46 @@ DB_USERNAME=tu_usuario
 DB_PASSWORD=tu_contraseña
 ```
 
-En `application.properties` se utiliza `spring.jpa.hibernate.ddl-auto=update`, por lo que Hibernate actualiza el esquema de las tablas a partir de las entidades al iniciar la aplicación. Esta configuración resulta práctica para el desarrollo académico; para un entorno productivo se recomienda gestionar los cambios del esquema mediante migraciones.
+Configurar las variables en el entorno de ejecución de IntelliJ IDEA.
+
+En Render y Aiven, las variables correspondientes deben configurarse en el panel del proveedor. La configuración del esquema utiliza Hibernate con `spring.jpa.hibernate.ddl-auto=update`, en este proyecto no utilizamos migraciones.
 
 ## 10. Instalación y ejecución local
 
-Antes de instalar y ejecutar localmente, recomendamos utilizar el despliegue en Render: https://agenda-salas.onrender.com, el cual puede recibir las peticiones en estos endpoints:
+Antes de realizar la instalación local recomendamos utilizar el despliegue en Render.
 
-- Usuarios: `https://agenda-salas.onrender.com/api/usuarios`
-- Salas: `https://agenda-salas.onrender.com/api/salas`
-- Reservas: `https://agenda-salas.onrender.com/api/reservas`
+### Requisitos para instalación local
+- JDK 21.
+- Git.
+- MySQL local o acceso a una instancia compatible.
+- Postman para ejecutar las solicitudes.
 
-A continuación se indican los pasos para instalar y ejecutar localmente:
-
-### Paso 1. Obtener el proyecto
-
-Clonar el repositorio:
+### Paso 1. Clonar el repositorio
 
 ```bash
 git clone https://github.com/FabiPaez/agenda-salas.git
 cd agenda-salas
 ```
 
-### Paso 2. Configurar las variables de entorno
+### Paso 2. Configurar la base de datos
 
-Definir `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` en la configuración de ejecución de IntelliJ IDEA, o en el entorno desde el que se inicie la aplicación.
+Definir `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` en la configuración de ejecución y verificar que la base de datos esté accesible.
 
-Verificar que el servicio MySQL esté activo y que la base de datos sea accesible.
-
-### Paso 3. Compilar y ejecutar las pruebas
+### Paso 3. Compilar el proyecto
 
 En Windows:
 
 ```powershell
-.\mvnw.cmd clean verify
+.\mvnw.cmd clean package
 ```
 
 En Linux o macOS:
 
 ```bash
-./mvnw clean verify
+./mvnw clean package
 ```
 
-### Paso 4. Iniciar la aplicación
+### Paso 4. Ejecutar la aplicación
 
 En Windows:
 
@@ -428,59 +506,46 @@ En Linux o macOS:
 ./mvnw spring-boot:run
 ```
 
-También se puede ejecutar la clase principal `AgendaSalasApplication` desde IntelliJ IDEA.
+También se puede ejecutar `AgendaSalasApplication` desde IntelliJ IDEA.
 
-Por defecto, el servidor inicia en el puerto 8080.
+Por defecto, la aplicación utiliza el puerto `8080`.
 
-### Paso 5. Probar la aplicación
+### Paso 5. Probar la API
 
-Abrir en el navegador:
-
-- Página de inicio: `http://localhost:8080/`
+- Inicio: `http://localhost:8080/`
+- Registro público: `http://localhost:8080/api/auth/registro`
 - Usuarios: `http://localhost:8080/api/usuarios`
 - Salas: `http://localhost:8080/api/salas`
 - Reservas: `http://localhost:8080/api/reservas`
 
-Para crear, modificar y eliminar recursos, utilizar Postman o una herramienta equivalente.
+Las rutas protegidas requieren Basic Auth en Postman.
 
-## 11. Pruebas sugeridas para la evaluación
+## 11. Organización del código
 
-Se recomienda comprobar los siguientes escenarios:
+El proyecto separa las responsabilidades en las siguientes capas:
 
-1. Consultar las listas de usuarios, salas y reservas.
-2. Crear una sala y verificar que se almacene correctamente.
-3. Crear un usuario y comprobar que la respuesta no exponga su contraseña.
-4. Crear una reserva con un usuario y una sala existentes.
-5. Consultar las reservas por usuario y por sala.
-6. Solicitar un ID inexistente y verificar la respuesta `404 Not Found`.
-7. Intentar registrar un email o número de sala duplicado y comprobar el conflicto.
-8. Intentar crear una reserva con horarios superpuestos para la misma sala y fecha.
-9. Enviar datos inválidos y verificar la respuesta `400 Bad Request`.
-10. Actualizar y eliminar recursos mediante `PUT` y `DELETE`.
-
-## 12. Estructura general de la aplicación
-
-La aplicación está organizada en capas para separar responsabilidades:
-
-- **Controller:** recibe las solicitudes HTTP y expone los endpoints.
-- **DTO / Request:** define los datos de entrada y sus validaciones.
-- **Service:** contiene las reglas de negocio y coordina las operaciones.
-- **Repository:** permite acceder a la base de datos mediante Spring Data JPA.
+- **Controller:** expone los endpoints y recibe las solicitudes HTTP.
+- **DTO:** define los datos de entrada y salida.
+- **Service:** implementa las reglas de negocio.
+- **Repository:** realiza el acceso a datos mediante Spring Data JPA.
 - **Entity:** representa las entidades persistidas.
-- **Mapper:** transforma entidades en DTO de respuesta.
-- **Exception Handler:** centraliza el tratamiento de errores y la construcción de respuestas HTTP.
+- **Mapper:** transforma entidades en DTO.
+- **Config:** contiene la configuración de seguridad y el codificador de contraseñas.
+- **Exception Handler:** centraliza el tratamiento de errores.
 
-Esta organización facilita el mantenimiento, las pruebas y la evolución del sistema.
+## 12. Alcance y mejoras futuras
 
-## 13. Alcance y mejoras futuras
+La entrega mantiene el CRUD y las relaciones JPA implementadas en la primera versión e incorpora registro seguro, autenticación y autorización por roles.
 
-La primera versión se concentra en la gestión de usuarios, salas y reservas.
-
-Entre las posibles mejoras para futuras entregas se encuentran:
-
-- Incorporar autenticación y autorización por roles.
-- Mejorar la protección y el almacenamiento de contraseñas.
-- Agregar gestión de películas y funciones.
-- Incorporar venta o reserva de entradas.
-- Ampliar las pruebas automatizadas y la documentación de la API.
+Como posibles mejoras futuras se consideran:
+- Restringir la gestión de reservas según la propiedad de cada reserva.
+- Incorporar pruebas automatizadas más amplias.
 - Incorporar migraciones versionadas de la base de datos.
+- Ampliar las funcionalidades relacionadas con películas y funciones.
+
+## 13. Información de la entrega académica
+
+- **Repositorio:** https://github.com/FabiPaez/agenda-salas
+- **Rama:** `main`
+- **Commit entregado:** "Preparando README y Home de API para Segundo Entregable".
+- **Integrantes:** Fabián Páez, Facundo Santana y Pablo Cortez.
