@@ -25,7 +25,7 @@ API REST para la gestión de reservas de salas de un cine, con validaciones de n
 
 **Rama de entrega:** `main`
 
-**Commit de entrega:** "Preparando README y Home de API para Segundo Entregable".
+**Commit de entrega:** "Preparando Segundo Entregable".
 
 ### Despliegue
 
@@ -547,5 +547,5 @@ Como posibles mejoras futuras se consideran:
 
 - **Repositorio:** https://github.com/FabiPaez/agenda-salas
 - **Rama:** `main`
-- **Commit entregado:** "Preparando README y Home de API para Segundo Entregable".
+- **Commit entregado:** "Preparando Segundo Entregable".
 - **Integrantes:** Fabián Páez, Facundo Santana y Pablo Cortez.
