@@ -25,7 +25,7 @@ API REST para la gestión de reservas de salas de un cine, con validaciones de n
 
 **Rama de entrega:** `main`
 
-**Commit de entrega:** "Preparando para Segundo Entregable".
+**Commit de entrega:** "Preparando para Segundo Entregable con Front de prueba".
 
 ### Despliegue
 
@@ -33,6 +33,14 @@ API REST para la gestión de reservas de salas de un cine, con validaciones de n
 - **Base de datos:** MySQL en Aiven.
 
 La aplicación utiliza variables de entorno para configurar la conexión a la base de datos. La disponibilidad del servicio publicado depende del proveedor de alojamiento; la primera petición puede demorar debido a la modalidad de alojamiento gratuito.
+
+### Frontend de prueba
+
+- **Plataforma web de prueba:** https://agenda-salas-frontend-6lp5gl5xr-fabian-paezs-projects.vercel.app/
+
+Se dispone de un frontend web de prueba para facilitar la interacción con la API desplegada, permitiendo comprobar visualmente algunas de sus funcionalidades, como el registro de usuarios, el inicio de sesión y la consulta de salas y reservas, según las operaciones disponibles.
+
+**Importante:** El frontend tiene fines demostrativos y complementarios. Su funcionamiento no reemplaza ni constituye evidencia suficiente de las pruebas de los endpoints de la API. Las pruebas de referencia son las documentadas y ejecutadas mediante Postman, declaradas en este archivo, donde se verifican las solicitudes, respuestas HTTP, validaciones y permisos definidos para cada operación.
 
 ## 2. Descripción y objetivo
 
@@ -547,5 +555,5 @@ Como posibles mejoras futuras se consideran:
 
 - **Repositorio:** https://github.com/FabiPaez/agenda-salas
 - **Rama:** `main`
-- **Commit entregado:** "Preparando para Segundo Entregable".
+- **Commit entregado:** "Preparando para Segundo Entregable con Front de prueba".
 - **Integrantes:** Fabián Páez, Facundo Santana y Pablo Cortez.
