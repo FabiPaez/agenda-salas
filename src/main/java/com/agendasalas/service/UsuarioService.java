@@ -90,6 +90,18 @@ public class UsuarioService {
         return UsuarioMapper.toResponse(buscarPorId(id));
     }
 
+    @Transactional(readOnly = true)
+    public UsuarioResponse buscarRespuestaPorEmail(String email) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RecursoNoEncontradoException(
+                                "No existe el usuario autenticado"
+                        )
+                );
+
+        return UsuarioMapper.toResponse(usuario);
+    }
+
     @Transactional
     public UsuarioResponse crearDesdeRequest(UsuarioRequest request) {
         Usuario usuario = UsuarioMapper.toEntity(request);

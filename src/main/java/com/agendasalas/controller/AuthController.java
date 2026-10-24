@@ -5,6 +5,8 @@ import com.agendasalas.dto.UsuarioResponse;
 import com.agendasalas.service.UsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,5 +28,13 @@ public class AuthController {
     public UsuarioResponse registrar(
             @Valid @RequestBody RegistroUsuarioRequest request) {
         return usuarioService.registrar(request);
+    }
+
+    @GetMapping("/me")
+    public UsuarioResponse usuarioAutenticado(
+            Authentication authentication) {
+        return usuarioService.buscarRespuestaPorEmail(
+                authentication.getName()
+        );
     }
 }
